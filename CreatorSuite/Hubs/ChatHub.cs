@@ -1,18 +1,17 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 
 namespace CreatorSuite
 {
+    [Authorize]
     public class ChatHub : Hub<IChatClient>
     {
         public const string DefaultGroup = "Guest Users";
 
         public ChatHub()
         {
-            Console.WriteLine();
-            Console.WriteLine("NEW HUB");
-            Console.WriteLine();
         }
 
         public async Task SendMessageTo(string user, string message)

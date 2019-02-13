@@ -4,6 +4,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using AutoMapper;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -53,12 +54,12 @@ namespace CreatorSuite
         [HttpPost("authenticate")]
         public IActionResult Authenticate([FromBody] UserDto userDto)
         {
-            var user = _userService.Authenticate(userDto.UserName, userDto.Password);
+            User user = _userService.Authenticate(userDto.UserName, userDto.Password);
             if (user == null)
                 return BadRequest(new { message = "Username or password is incorrect" });
 
             var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.ASCII.GetBytes(_appSettings.Secret);
+            var symmetricKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_appSettings.Secret));
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(new Claim[]
@@ -66,10 +67,10 @@ namespace CreatorSuite
                     new Claim(ClaimTypes.Name, user.ID.ToString())
                 }),
                 Expires = DateTime.UtcNow.AddDays(7),
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha512)
+                SigningCredentials = new SigningCredentials(symmetricKey, SecurityAlgorithms.HmacSha512)
             };
             var token = tokenHandler.CreateToken(tokenDescriptor);
-            var tokenString = tokenHandler.WriteToken(token);
+            string tokenString = tokenHandler.WriteToken(token);
 
             // return basic user info (without password) and token to store client side
             return Ok(new
@@ -86,12 +87,9 @@ namespace CreatorSuite
         [HttpPost("register")]
         public IActionResult Register([FromBody] UserDto userDto)
         {
-            // map dto to entity
             var user = _mapper.Map<User>(userDto);
-
             try
-            {
-                // save 
+            { 
                 _userService.Create(user, userDto.Password);
                 return Ok();
             }
@@ -110,7 +108,6 @@ namespace CreatorSuite
 
             try
             {
-                // save 
                 _userService.Update(user, userDto.Password);
                 return Ok();
             }

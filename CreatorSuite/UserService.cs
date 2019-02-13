@@ -1,21 +1,10 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
 namespace CreatorSuite
 {
-    public interface IUserService
-    {
-        User Authenticate(string username, string password);
-        IEnumerable<User> GetAll();
-        User GetById(int id);
-        User Create(User user, string password);
-        void Update(User user, string password = null);
-        bool Delete(int id);
-    }
-
     public class UserService : IUserService
     {
         private DataContext _context;
@@ -24,12 +13,7 @@ namespace CreatorSuite
         {
             _context = context;
         }
-
-        public IEnumerable<User> GetAll()
-        {
-            return _context.Users;
-        }
-
+        
         public User GetById(int id)
         {
             return _context.Users.Find(id);
@@ -43,8 +27,7 @@ namespace CreatorSuite
             var user = _context.Users.SingleOrDefault(x => x.UserName == username);
             if (user == null)
                 return null;
-
-            // check if password is correct
+            
             if (!VerifyPasswordHash(password, user.PasswordHash, user.PasswordSalt))
                 return null;
 
@@ -56,6 +39,9 @@ namespace CreatorSuite
         {
             if (string.IsNullOrWhiteSpace(password))
                 throw new AppException("Password is required");
+
+            if (_context.Users.Any(x => x.ID == user.ID))
+                throw new AppException("ID \"" + user.ID + "\" is already taken");
 
             if (_context.Users.Any(x => x.UserName == user.UserName))
                 throw new AppException("Username \"" + user.UserName + "\" is already taken");
@@ -102,7 +88,7 @@ namespace CreatorSuite
 
         public bool Delete(int id)
         {
-            var user = _context.Users.Find(id);
+            User user = _context.Users.Find(id);
             if (user != null)
             {
                 _context.Users.Remove(user);

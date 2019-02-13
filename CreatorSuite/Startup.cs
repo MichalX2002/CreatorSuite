@@ -37,50 +37,6 @@ namespace CreatorSuite
             services.AddScoped<IUserService, UserService>();
             services.AddDbContext<DataContext>(x => x.UseInMemoryDatabase("TestDb"));
 
-            // configure strongly typed settings objects
-            var appSettingsSection = Configuration.GetSection("AppSettings");
-            services.Configure<AppSettings>(appSettingsSection);
-            var appSettings = appSettingsSection.Get<AppSettings>();
-
-            var authBuilder = services.AddAuthentication(options =>
-            {
-                options.DefaultScheme = "MyScheme";
-            });
-            authBuilder.AddScheme<BasicAuthenticationOptions, BasicAuthenticationHandler>("MyScheme", options =>
-            {
-                /* configure options */
-            });
-
-            //authBuilder.AddJwtBearer(x =>
-            //{
-            //    x.RequireHttpsMetadata = true;
-            //    x.SaveToken = true;
-            //    x.TokenValidationParameters = new TokenValidationParameters
-            //    {
-            //        ValidateAudience = true,
-            //        ValidateIssuer = true,
-            //        ValidateIssuerSigningKey = true,
-            //        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(appSettings.Secret)),
-            //    };
-            //    x.Events = new JwtBearerEvents
-            //    {
-            //        OnTokenValidated = context =>
-            //        {
-            //            Console.WriteLine();
-            //            Console.WriteLine("vali");
-            //            Console.WriteLine();
-            //
-            //            var userService = context.HttpContext.RequestServices.GetRequiredService<IUserService>();
-            //            var userId = int.Parse(context.Principal.Identity.Name);
-            //            var user = userService.GetById(userId);
-            //            if (user == null)
-            //                context.Fail("Unauthorized");
-            //
-            //            return Task.CompletedTask;
-            //        }
-            //    };
-            //});
-
             var signalRBuilder = services.AddSignalR();
             signalRBuilder.AddJsonProtocol();
             signalRBuilder.AddHubOptions<ChatHub>(options =>
@@ -92,13 +48,64 @@ namespace CreatorSuite
             mvcBuilder.SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
             mvcBuilder.AddViews();
             mvcBuilder.AddRazorViewEngine();
-            mvcBuilder.AddJsonFormatters();
+            mvcBuilder.AddAuthorization();
+            mvcBuilder.AddJsonFormatters(x =>
+            {
+                x.NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore; 
+            });
+
+            // configure strongly typed settings objects
+            var appSettingsSection = Configuration.GetSection("AppSettings");
+            services.Configure<AppSettings>(appSettingsSection);
+            var appSettings = appSettingsSection.Get<AppSettings>();
+
+            var authBuilder = services.AddAuthentication(x => 
+            {
+                x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            });
+            authBuilder.AddJwtBearer(x =>
+            {
+                x.RequireHttpsMetadata = true;
+                x.SaveToken = true;
+                x.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateAudience = false,
+                    ValidateIssuer = false,
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(appSettings.Secret))
+                };
+                x.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = context =>
+                    {
+                        var userService = context.HttpContext.RequestServices.GetRequiredService<IUserService>();
+                        var userId = int.Parse(context.Principal.Identity.Name);
+                        var user = userService.GetById(userId);
+                        if (user == null)
+                            context.Fail("Unauthorized");
+            
+                        return Task.CompletedTask;
+                    },
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.HttpContext.Request.Path;
+                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                            // Read the token out of the query string
+                            context.Token = accessToken;
+
+                        return Task.CompletedTask;
+                    }
+                };
+            });
         }
 
         public void Configure(IApplicationBuilder app, IHostingEnvironment env)
         {
-            app.UseAuthentication();
             app.UseCookiePolicy();
+            app.UseHttpsRedirection();
+            app.UseAuthentication();
 
             if (env.IsDevelopment())
             {
@@ -111,7 +118,7 @@ namespace CreatorSuite
             }
 
             app.UseSignalR(routes => routes
-                .MapHub<ChatHub>("/chathub"));
+                .MapHub<ChatHub>("/hubs/chat"));
 
             app.UseMvc(routes => routes
                 .MapRoute("users", "{controller=Users}")
@@ -125,8 +132,6 @@ namespace CreatorSuite
                     ctx.Context.Response.Headers.Append("Cache-Control", $"public, max-age={cachePeriod}");
                 }
             });
-
-            app.UseHttpsRedirection();
         }
     }
 }

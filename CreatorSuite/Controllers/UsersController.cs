@@ -4,7 +4,6 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using AutoMapper;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -19,12 +18,10 @@ namespace CreatorSuite
     {
         private IUserService _userService;
         private IMapper _mapper;
-        private readonly AppSettings _appSettings;
+        private AppSettings _appSettings;
 
         public UsersController(
-            IUserService userService,
-            IMapper mapper,
-            IOptions<AppSettings> appSettings)
+            IUserService userService, IMapper mapper, IOptions<AppSettings> appSettings)
         {
             _userService = userService;
             _mapper = mapper;
@@ -32,29 +29,27 @@ namespace CreatorSuite
         }
 
         [HttpGet]
-        public IActionResult GetAll()
+        public IActionResult GetMyPie()
         {
-            var users = _userService.GetAll();
-            var userDtos = _mapper.Map<IList<UserDto>>(users);
-            return Ok(userDtos);
+            return Content("here's your pie");
         }
-
+        
         [HttpGet("{id}")]
         public IActionResult GetByID(int id)
         {
-            var user = _userService.GetById(id);
+            User user = _userService.GetById(id);
             if (user == null)
                 return NotFound();
 
-            var userDto = _mapper.Map<UserDto>(user);
-            return Ok(userDto);
+            var model = _mapper.Map<UserDataModel>(user);
+            return Ok(model);
         }
 
         [AllowAnonymous]
         [HttpPost("authenticate")]
-        public IActionResult Authenticate([FromBody] UserDto userDto)
+        public IActionResult Authenticate([FromBody] UserDataModel model)
         {
-            User user = _userService.Authenticate(userDto.UserName, userDto.Password);
+            User user = _userService.Authenticate(model.UserName, model.Password);
             if (user == null)
                 return BadRequest(new { message = "Username or password is incorrect" });
 
@@ -62,10 +57,7 @@ namespace CreatorSuite
             var symmetricKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_appSettings.Secret));
             var tokenDescriptor = new SecurityTokenDescriptor
             {
-                Subject = new ClaimsIdentity(new Claim[]
-                {
-                    new Claim(ClaimTypes.Name, user.ID.ToString())
-                }),
+                Subject = new ClaimsIdentity(new Claim[] { new Claim(ClaimTypes.Name, user.ID.ToString()) }),
                 Expires = DateTime.UtcNow.AddDays(7),
                 SigningCredentials = new SigningCredentials(symmetricKey, SecurityAlgorithms.HmacSha512)
             };
@@ -85,12 +77,12 @@ namespace CreatorSuite
 
         [AllowAnonymous]
         [HttpPost("register")]
-        public IActionResult Register([FromBody] UserDto userDto)
+        public IActionResult Register([FromBody] UserDataModel model)
         {
-            var user = _mapper.Map<User>(userDto);
+            User user = _mapper.Map<User>(model);
             try
             { 
-                _userService.Create(user, userDto.Password);
+                _userService.Create(user, model.Password);
                 return Ok();
             }
             catch (AppException ex)
@@ -101,14 +93,14 @@ namespace CreatorSuite
         }
 
         [HttpPut("{id}")]
-        public IActionResult Update(int id, [FromBody] UserDto userDto)
+        public IActionResult Update(int id, [FromBody] UserDataModel model)
         {
-            var user = _mapper.Map<User>(userDto);
+            User user = _mapper.Map<User>(model);
             user.ID = id; // prevent modification of ID
 
             try
             {
-                _userService.Update(user, userDto.Password);
+                _userService.Update(user, model.Password);
                 return Ok();
             }
             catch (AppException ex)

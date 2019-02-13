@@ -9,10 +9,12 @@ hej guis
 
 
 @section Scripts {
+	<script src="~/lib/afetch.js"></script>
 	<script src="~/lib/signalr/signalr.min.js"></script>
 	<script>
+		let cachedToken = null;
 		const connection = new signalR.HubConnectionBuilder()
-			.withUrl("/chathub")
+			.withUrl("/hubs/chat", { accessTokenFactory: getToken })
 			.configureLogging(signalR.LogLevel.Information)
 			.build();
 
@@ -27,7 +29,24 @@ hej guis
 
 		connection.start().then(() => {
 			connection.invoke("ReceiveMessage", "hehe ;)").catch(err => console.error(err.toString()));
+		}).catch((reason) => {
+			console.error("Failed to start: ", reason);
 		});
 
+		async function getToken() {
+			if (cachedToken) {
+				return cachedToken;
+			}
+
+			console.log("Requesting new authentication token...");
+			const headers = { "Content-Type": "application/json" };
+			const body = JSON.stringify({ "userName": "HejPåDig69", "password": "1337" });
+			const userData = await afetch({ method: "POST", url: "/users/authenticate", headers, body });
+			const user = JSON.parse(userData);
+			cachedToken = user.token;
+
+			console.log(`New token received for user "${user.userName}"`);
+			return cachedToken;
+		}
 	</script>
 }

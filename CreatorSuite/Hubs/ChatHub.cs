@@ -8,8 +8,6 @@ namespace CreatorSuite
     [Authorize]
     public class ChatHub : Hub<IChatClient>
     {
-        public const string DefaultGroup = "Guest Users";
-
         public ChatHub()
         {
         }
@@ -30,13 +28,13 @@ namespace CreatorSuite
 
         public override async Task OnConnectedAsync()
         {
-            //await Groups.AddToGroupAsync(Context.ConnectionId, DefaultGroup);
+            await SendMessageToAll($"Well {Context.ConnectionId} connected");
             await base.OnConnectedAsync();
         }
 
         public override async Task OnDisconnectedAsync(Exception exception)
         {
-            //await Groups.RemoveFromGroupAsync(Context.ConnectionId, DefaultGroup);
+            await SendMessageToAll($"Well {Context.ConnectionId} disconnected");
             await base.OnDisconnectedAsync(exception);
         }
     }

@@ -1,6 +1,6 @@
 ﻿namespace CreatorSuite
 {
-    public class UserDto
+    public class UserDataModel
     {
         public int ID { get; set; }
         public string FirstName { get; set; }

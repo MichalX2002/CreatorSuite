@@ -6,8 +6,8 @@ namespace CreatorSuite
     {
         public AutoMapperProfile()
         {
-            CreateMap<User, UserDto>();
-            CreateMap<UserDto, User>();
+            CreateMap<User, UserDataModel>();
+            CreateMap<UserDataModel, User>();
         }
     }
 }

@@ -12,14 +12,14 @@ namespace CreatorSuite
         {
         }
 
-        public async Task SendMessageTo(string user, string message)
+        public Task SendMessageTo(string user, string message)
         {
-            await Clients.All.ReceiveMessageFrom(user, message);
+            return Clients.All.ReceiveMessageFrom(user, message);
         }
 
-        public async Task SendMessageToAll(string message)
+        public Task SendMessageToAll(string message)
         {
-            await Clients.All.ReceiveMessage(message);
+            return Clients.All.ReceiveMessage(message);
         }
 
         public void ReceiveMessage(string message)
